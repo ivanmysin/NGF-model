@@ -7,37 +7,7 @@ h.nrnmpi_init()
 import numpy as np
 import h5py
 import os
-import sys
 from time import time
-
-def join_lfp(comm, electrodes):
-    # function unite lfp from threads
-    rank = comm.Get_rank()
-
-    lfp_data = []
-    for el in electrodes:
-        if el is None:
-            sended = None
-        else:
-            sended = el.values
-        reseved = comm.gather(sended, root=0)
-        
-        if rank == 0:
-            lfp_el = []
-            for var_tmp in reseved:
-                if not var_tmp is None:
-                    lfp_el.append(var_tmp) 
-            
-            
-            if len(lfp_el) > 0:
-                lfp_el = np.vstack(lfp_el)
-                
-                lfp_el = np.sum(lfp_el[1:, :], axis=0)
-            else:
-                lfp_el = np.zeros(2)
-            lfp_data.append(lfp_el)
-    
-    return lfp_data
 
 def join_vect_lists(comm, vect_list, gid_vect):
     # function unite vectors from threads
@@ -81,10 +51,6 @@ def run_simulation(params):
     h.cvode.use_fast_imem(1)
     h.CVode().fixed_step(1)
     h.cvode.use_local_dt(1)
-
-    sys.path.append("../LFPsimpy/") # path to LFPsimpy
-    from LFPsimpy import LfpElectrode
-
 
     # load all cells
     cell_path = "./cells/"
@@ -355,23 +321,6 @@ def run_simulation(params):
         print("End of connection settings")
     
 
-    # create electrodes objects for LFP simulation
-    el_x = params["elecs"]["el_x"]
-    el_y = params["elecs"]["el_y"]
-    el_z = params["elecs"]["el_z"]
-
-    electrodes = []
-
-    for idx_el in range(el_x.size):
-        if is_pyrs_thread:
-            le = LfpElectrode(x=el_x[idx_el], y=el_y[idx_el], z=el_z[idx_el], sampling_period=h.dt, \
-                              method='Line', sec_list=pyramidal_sec_list)
-            electrodes.append(le)
-        else:
-            electrodes.append(None)
-    
-
-
     if pc.id() == 0:
         t_sim = h.Vector()
         t_sim.record(h._ref_t)
@@ -399,7 +348,6 @@ def run_simulation(params):
 
     # unite data from all threads to 0 thread
     comm = MPI.COMM_WORLD
-    lfp_data = join_lfp(comm, electrodes)
     spike_trains = join_vect_lists(comm, spike_times_vecs, gid_vect)
     soma_v_list = join_vect_lists(comm, soma_v_vecs, gid_vect)
 
@@ -425,9 +373,6 @@ def run_simulation(params):
             
             lfp_group_origin = lfp_group.create_group('origin_data')
             lfp_group_origin.attrs['SamplingRate'] = 1000 / h.dt   # dt in ms 
-
-            for idx_el, lfp in enumerate(lfp_data):
-                lfp_group_origin.create_dataset("channel_" + str(idx_el+1), data = lfp[rem_idx:] )
 
             # save firing data
             firing_group = h5file.create_group("extracellular/electrode_1/firing/origin_data")
