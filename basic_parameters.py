@@ -57,7 +57,7 @@ def get_basic_params():
 
         "file_results":  "./Results/theta_state.hdf5", # non_theta_state_ripples.hdf5",   #file for saving results
         "file_params" : "./Results/params.pickle",
-        "duration" : 200, # 10 sec simulation time
+        "duration" : 20, # 10 sec simulation time
 
         "del_start_time" : 0, # time after start for remove
         

@@ -82,28 +82,10 @@ def run_simulation(params):
         celltypename = neuron_param["celltype"]
         cellclass_name = neuron_param["cellclass"]
         gid = neuron_param["gid"]
-
         cellclass = getattr(h, cellclass_name)
-
         cell = cellclass(gid, 0)
 
         pc.set_gid2node(gid, pc.id())
-        
-        if celltypename == "pyr":
-            # x and y position of pyramidal cells
-            
-            angle = 2 * np.pi * (RNG.random() - 0.5)
-            radius = radius_for_pyramids * 2 * (RNG.random() - 0.5) 
-            pyr_coord_in_layer_x = radius * np.cos(angle)
-            pyr_coord_in_layer_y = radius * np.sin(angle)
-
-
-            cell.position(pyr_coord_in_layer_x, 0, pyr_coord_in_layer_y)
-            
-            for sec in cell.all:
-                pyramidal_sec_list.append(sec)
-            is_pyrs_thread = True
-
         # set counters for spike generation
         if cell.is_art() == 0:
             for sec in cell.all:
@@ -130,8 +112,6 @@ def run_simulation(params):
                     setattr(cell.acell, p_name, p_val)
                 
             setattr(cell.acell, "delta_t", h.dt)
-                    
-                    
             setattr(cell.acell, "myseed", RNG.integers(0, 1000000000000000, 1) )
 
             firing = h.NetCon(cell.acell, None)
@@ -141,9 +121,7 @@ def run_simulation(params):
         firing.record(fring_vector)
         spike_count_obj.append(firing)
         spike_times_vecs.append(fring_vector)
-        
-        
-        
+
         # check is need to save Vm of soma
         if np.sum(params["save_soma_v"] == gid) == 1:
             soma_v = h.Vector()
@@ -152,9 +130,6 @@ def run_simulation(params):
         else:
             soma_v_vecs.append(np.empty(shape=0) )
         
-      
-        
-
         if cell.is_art() == 0:
             hh_cells.append(cell)
         
