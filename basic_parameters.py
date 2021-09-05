@@ -1,9 +1,9 @@
 import numpy as np
 import presimulation_lib as prelib
-from nontheta_state_params import theta_state2non_theta_state_params
 from copy import deepcopy
 import mpi4py
 import pickle
+
 """
 pyr - CA1 piramidal cells
 olm - Oriens-Lacunosum/Moleculare (OLM) Cells
@@ -20,8 +20,6 @@ mec - stellate cells of the medial entorhinal cortex
 msach - medial septal cholinergic neurons
 msteevracells  - medial septal GABAergic neurons (Teevra cells)
 """
-
-SIMULATE_NON_THETA_STATE = False # flag simulate non-theta state (true) or theta state (false)
 
 
 def get_basic_params():
