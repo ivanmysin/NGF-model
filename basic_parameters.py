@@ -55,7 +55,7 @@ def get_basic_params():
 
         "file_results":  "./Results/theta_state.hdf5", # non_theta_state_ripples.hdf5",   #file for saving results
         "file_params" : "./Results/params.pickle",
-        "duration" : 20, # 10 sec simulation time
+        "duration" : 10000, # 10 sec simulation time
 
         "del_start_time" : 0, # time after start for remove
         
@@ -90,7 +90,7 @@ def get_basic_params():
             "Nolm" : 0, # 80,
             "Ncckbas" :0, #  160,
             "Nivy" : 0, # 260,
-            "Nngf" : 200, # 130,
+            "Nngf" : 0, # 130,
             "Nbis" : 0, # 70,
             "Naac" : 0, # 60,
             "Nsca" : 0, # 40,
@@ -99,7 +99,7 @@ def get_basic_params():
             "Nca3_non_spatial" : 0, # 3500,
             "Nmec" : 0, # 3500,
             "Nmsteevracells" : 0,# 20, # 200,
-            "Nmsach"         : 150, #20, # 150,
+            "Nmsach"         : 200, #20, # 150,
         },
 
         # cells parameters
@@ -1617,17 +1617,14 @@ def get_basic_params():
     
     return basic_params
 
-def get_object_params(Nthreads=1):
+def get_object_params(Nthreads=1, basic_params=None):
     """
     Function return list.
     Each element of the list is dictionary of parameters for one thread of CPU
     """
 
-    basic_params = get_basic_params()
-    
-    if SIMULATE_NON_THETA_STATE:
-        basic_params = theta_state2non_theta_state_params(basic_params)
-    
+    if basic_params == None:
+        basic_params = get_basic_params()
 
     OBJECTS_PARAMS = []
     for _ in range(Nthreads):
@@ -2000,17 +1997,22 @@ def get_object_params(Nthreads=1):
 if __name__ == "__main__":
     # This test code. You can run and see format of list and dictionaries genereated by functions in this file
     Nthreads = 4
-    objc_p = get_object_params(Nthreads=Nthreads)
 
-    for ith in range(Nthreads):
-        for syn in objc_p[ith]["synapses_params"]:
-            pre_gid = syn["pre_gid"]
-            pre_ith = int (pre_gid % Nthreads)
-            neuron_idx = int(pre_gid / Nthreads )
-            pre = objc_p[pre_ith]["neurons"][neuron_idx]
+    for file_idx in range(10):
+        basic_params = get_basic_params()
+        basic_params["file_params"] = "./Results/params_{}.pickle".format(file_idx)
+        basic_params["file_results"] = "./Results/simres_{}.hdf5".format(file_idx)
+        objc_p = get_object_params(Nthreads=Nthreads, basic_params=basic_params)
 
-            if pre["celltype"] == "mec":
-                if (syn["pre_gid"] != pre["gid"]):
-                    print("Hello")
-                ph = pre["cellparams"]["grid_phase"]
-                print(ph)
+    # for ith in range(Nthreads):
+    #     for syn in objc_p[ith]["synapses_params"]:
+    #         pre_gid = syn["pre_gid"]
+    #         pre_ith = int (pre_gid % Nthreads)
+    #         neuron_idx = int(pre_gid / Nthreads )
+    #         pre = objc_p[pre_ith]["neurons"][neuron_idx]
+    #
+    #         if pre["celltype"] == "mec":
+    #             if (syn["pre_gid"] != pre["gid"]):
+    #                 print("Hello")
+    #             ph = pre["cellparams"]["grid_phase"]
+    #             print(ph)

@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from elephant import signal_processing as sigp 
 import matplotlib.pyplot as plt
 import h5py
@@ -31,7 +32,7 @@ def processing_and_save(filepath):
 
         parzen_win = get_window("parzen", 51)
         for celltype in firing_origin.keys():
-            if celltype != "ngf": continue # !!!!!!
+            if celltype != "msach": continue # ngf !!!!!!
 
             firing_process_group_celltype = firing_process_group.create_group(celltype)
             spike_rate_pop = np.zeros( tsim.size, dtype=np.float)
@@ -86,11 +87,18 @@ def processing_and_save(filepath):
         
         
 if __name__ == "__main__":
-    from basic_parameters import get_basic_params
+    # from basic_parameters import get_basic_params
+    #
+    # basic_params = get_basic_params()
+    # filepath = basic_params["file_results"]
+    path = "./Results/"
+    for file in os.listdir(path):
 
-    basic_params = get_basic_params()
-    filepath = basic_params["file_results"]
-    processing_and_save(filepath)
+        if file.split(".")[-1] != "hdf5":
+            continue
+        filepath = path + file
+        print(filepath)
+        processing_and_save(filepath)
 
 
 
