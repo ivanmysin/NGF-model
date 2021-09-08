@@ -1,10 +1,11 @@
 import os
 
-dir = "./Results/"
+path = "./Results/"
 #files = [ "params.pickle", ]
 
-for file in os.listdir(dir):
+for file in os.listdir(path):
     if file.split(".")[-1] != "pickle":
          continue
-    filepath = dir + file
+    filepath = path + file
     os.system('mpiexec -n 4 python3 base_model.py {}'.format(filepath) )
+    

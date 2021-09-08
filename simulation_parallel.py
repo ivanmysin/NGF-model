@@ -68,7 +68,7 @@ def run_simulation(params):
     
     pyramidal_sec_list = h.SectionList()
     is_pyrs_thread = False
-    radius_for_pyramids = params["common_params"]["radius4piramids"]
+   
 
 
     spike_count_obj = []

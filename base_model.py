@@ -13,6 +13,7 @@ if rank == 0:
     #from basic_parameters import get_object_params
     # basic_params = get_object_params(nthreads) # get parameters
     parameters_filepath = sys.argv[1]
+    print("Running file params: ", parameters_filepath)
     with open(parameters_filepath, 'rb') as file_param:
         basic_params = pickle.load(file_param)
 
