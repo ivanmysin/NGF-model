@@ -1,15 +1,20 @@
 from mpi4py import MPI
-
+import sys
+import pickle
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 nthreads = comm.Get_size()
 
 
+
 from simulation_parallel import run_simulation
 
 if rank == 0:
-    from basic_parameters import get_object_params
-    basic_params = get_object_params(nthreads) # get parameters
+    #from basic_parameters import get_object_params
+    # basic_params = get_object_params(nthreads) # get parameters
+    parameters_filepath = sys.argv[1]
+    with open(parameters_filepath, 'rb') as file_param:
+        basic_params = pickle.load(file_param)
 
     for th_idx, p in enumerate(basic_params):
         if th_idx == 0: continue
