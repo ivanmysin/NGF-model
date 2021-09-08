@@ -28,6 +28,7 @@ def get_basic_params():
     """
     Function return dictionary of hyperparameters of the model
     """
+    #Количество задается отдельно, т к они участвуют в вычислении LFP и для них могут быть указаны координаты
     Npyr = 0         #  number of pyramidal cells
     Npvbas = 0            #  number of pvbas cells
     Nca3_spatial = 0     #  number of ca3 spatial cells
@@ -66,7 +67,7 @@ def get_basic_params():
         "pvbas_coodinates" : np.cumsum( np.zeros(Npvbas) + pvbas_dx ),
         "var_conns_on_pyr" : 9000, # variation for connection settings on pyramidal cells
         
-        
+        #Этот словарь никуда не идет?
         "CellNumbersInFullModel" : {
             "Npyr" :  9000,
             "Npvbas" : 200,
@@ -92,7 +93,7 @@ def get_basic_params():
             "Nolm" : 0, # 80,
             "Ncckbas" :0, #  160,
             "Nivy" : 0, # 260,
-            "Nngf" : 200, # 130,
+            "Nngf" : 16, # 130,
             "Nbis" : 0, # 70,
             "Naac" : 0, # 60,
             "Nsca" : 0, # 40,
@@ -101,7 +102,7 @@ def get_basic_params():
             "Nca3_non_spatial" : 0, # 3500,
             "Nmec" : 0, # 3500,
             "Nmsteevracells" : 0,# 20, # 200,
-            "Nmsach"         : 150, #20, # 150,
+            "Nmsach"         : 0, #150, #20, # 150,
         },
 
         # cells parameters
@@ -183,8 +184,8 @@ def get_basic_params():
             
             "pyr" : {
                 "cellclass" : "CA1PyramidalCell",
-                "iext" : 0,
-                "iext_std" : 0.002,
+                "iext" : 0, #величина внешнего тока, нужен для иммитации входа при отладке
+                "iext_std" : 0.002, #стандартное отклонение внешнего тока
             },
             
             "pvbas" : {
@@ -238,19 +239,17 @@ def get_basic_params():
         },
 
         # indexes of neurons for saving soma potentials
+        # Сколько нейронов данного типа записывать
         "save_soma_v" : {
             "pyr" : [range(6000, 6050)], # np.append(np.arange(400, 450), np.arange(6000, 6050)), #  [range(400, 1400)],    # [0, ],
             "pvbas" : [range(30, 80)], # [0, ], #
             "olm" :   [range(10)], # [0, ], # [0, 1, 3],
             "cckbas" : [range(10)], # #[0, ],
-            "ivy" : [range(10)], # [0, ], #[0, ],
-            "ngf" : np.arange(200), #[0, ], # [0, ],
+            "ivy" : np.arange(30), #[range(10)], # [0, ], #[0, ],
+            "ngf" : np.arange(100), #[0, ], # [0, ],
             "bis" : [range(10)], # [0, ], # [0, ],
             "aac" : [range(10)], #[0, ],
-            "sca" : [range(10)], #[0, ],
-        
-            "vect_idxes" : [],
-        
+            "sca" : [range(10)], #[0, ],        
         },
 
         # parameters of connections
@@ -1407,13 +1406,13 @@ def get_basic_params():
             
            "ngf2ngf": {
                 "gmax": 0.75,
-                "gmax_std" : 0.7,
+                "gmax_std" : 0, #0.7, #Из-за разброса даже выигравшие существование синапсы могут занулиться!
                 
                 "Erev": -75,
                 "tau_rise": 3.1,
                 "tau_decay": 42,
 
-                "prob": 17/200,
+                "prob": 1, #17/200,
                 
                 "delay": 1.2,
                 "delay_std" : 0.2,
@@ -1644,49 +1643,70 @@ def get_object_params(Nthreads=1):
 
         OBJECTS_PARAMS.append(thread_param)
 
-    cell_types_in_model = []
-    gids_of_celltypes = {}
+    cell_types_in_model = [] #позже входит в состав OBJECTS_PARAMS (но только нулевого потока?)
+    gids_of_celltypes = {} #Общий список гидов, соответствующий общему списку нейронов до распределения по потокам
 
     for celltype, numbers in sorted(basic_params["CellNumbers"].items()):
 
-        celltype = celltype[1:]
-        start_idx = len(cell_types_in_model)
-        cell_types_in_model.extend( [celltype, ] * numbers )
-        end_idx = len(cell_types_in_model)
-        gids_of_celltypes[celltype] = np.arange(start_idx, end_idx)
+        celltype = celltype[1:] #Название типа (отбрасываем первый символ - N)
+        start_idx = len(cell_types_in_model) #Индекс первого элемента данного типа в общем массиве
+        cell_types_in_model.extend( [celltype, ] * numbers ) #Заполнение участка общего массива однотипными элементами
+        end_idx = len(cell_types_in_model) #Индекс последнего элемента данного типа в общем массиве
+        gids_of_celltypes[celltype] = np.arange(start_idx, end_idx) #Гиды, видимо, соответствуют индексам в общем массиве
+        #gids_of_celltypes здесь локальная переменная, которая никуда не сохраняется?
+        #Амонимия: ниже gids_of_celltypes еще и ключ от словаря, который заполняется без участия локальной 
+        #переменной gids_of_celltypes
+    #print("cell_types_in_model", cell_types_in_model)
+    #print("gids_of_celltypes", gids_of_celltypes["ngf"])
+    #print("gids_of_celltypes", gids_of_celltypes["ivy"])
+    #print("gids_of_celltypes", gids_of_celltypes["aac"])
     
-    Ncells = len(cell_types_in_model)
+    Ncells = len(cell_types_in_model) 
     
-    
+    #Видимо, берет общее число нейронов, растаскивает их по потокам и нумерует от 0 до нейроны_на_поток
     neurons_by_threads = np.tile(np.arange(Nthreads), int(np.ceil(Ncells/Nthreads)) )
     neurons_by_threads = neurons_by_threads[:Ncells]
-
-
-    save_soma_v_idx = np.empty(shape=0, dtype=np.int)
+    #print("neurons_by_threads", neurons_by_threads)
+    #Выбор подмножества нейронов для записи МП:
+    save_soma_v_idx = np.empty(shape=0, dtype=np.int)#одна на все потоки
 
     for celltype, list_idx in basic_params["save_soma_v"].items():
 
-        if celltype == "vect_idxes": continue
-
+        #Видимо, сбрасывает нумерацию элементов подмассива, индексы первых элементов которых отличны от нуля
+        #Перенумеровывает подмножества из общего массива.
         indices = [i for i, x in enumerate(cell_types_in_model) if x == celltype]
+        #print("indices", indices)
         if len(indices) == 0:
             continue
 
-        indices = np.asarray(indices)
-        list_idx = np.asarray(list_idx)
+        indices = np.asarray(indices) #Список индексов, соответствующий общему массиву нейронов
+        list_idx = np.asarray(list_idx) #"Обнуленный" список индексов
+        #print("indices", indices)
+        #print("list_idx", list_idx)
         
         save_soma_v_idx = np.append(save_soma_v_idx, indices[list_idx[list_idx<len(indices)]])
+        #print("save_soma_v_idx", save_soma_v_idx)
 
     for th_idx in range(Nthreads):
         if th_idx == 0:
+            #Образец для сборки после симуляции (каждый нейрон помещается на свою начальную позицию и исходя из 
+            #нее строятся графики и ведутся обсчеты. Также (!) отфильровываются нейроны, которые должны обсчитываться 
+            #в нулевом потоке, т е то же, что делается после else для других потоков.)
             OBJECTS_PARAMS[th_idx]["save_soma_v"] = save_soma_v_idx
+            #print("for zero thread: ", save_soma_v_idx)
         else:
+            #Сохранение индексов общего массива, которые соответствуют номеру того или иного потока
             save_soma_v_idx_tmp = save_soma_v_idx[neurons_by_threads[save_soma_v_idx] == th_idx]
             OBJECTS_PARAMS[th_idx]["save_soma_v"] = save_soma_v_idx_tmp # !!!!!!!
-
+            #print("neurons_by_threads", neurons_by_threads)
+            #print("save_soma_v_idx_tmp", save_soma_v_idx_tmp)
+        #Гиды (индивидуален для каждого нейрона) разбрасываются по потокам по тому же принципу, что и индексы.
         OBJECTS_PARAMS[th_idx]["gids_of_celltypes"] = np.arange(len(cell_types_in_model))[neurons_by_threads == th_idx]
+        #print("gids_of_celltypes", gids_of_celltypes)
+        #print("OBJECTS_PARAMS[th_idx][gids_of_celltypes] ", OBJECTS_PARAMS[th_idx]["gids_of_celltypes"])
     OBJECTS_PARAMS[0]["cell_types_in_model"] = cell_types_in_model
 
+    #Задание конкретных параметров для разных типов генераторов
     for celltypename, cellparam in basic_params["CellParameters"].items():
 
 
@@ -1729,7 +1749,8 @@ def get_object_params(Nthreads=1):
         else:
             continue
 
-
+    #Участвуют в замере LFP, а также обладают координатами:
+    #(Конкретное число берется из общего с другими типами источника)
     Npyr = basic_params["CellNumbers"]["Npyr"]  
     Npvbas = basic_params["CellNumbers"]["Npvbas"]
     Nca3 = basic_params["CellNumbers"]["Nca3_spatial"]
@@ -1749,16 +1770,16 @@ def get_object_params(Nthreads=1):
 
     for cell_idx, celltype in enumerate(cell_types_in_model):
         cell_param = basic_params["CellParameters"][celltype]
-        
+        #Задание базовых свойств каждого нейрона
         neuron = {
             "celltype" : celltype, 
             "cellclass" : cell_param["cellclass"],
             "cellparams" : {},
-            "gid" : cell_idx,
+            "gid" : cell_idx, #Гид задается дважды?
         }
         neuron["cellparams"] = deepcopy(cell_param)
 
-            
+        #Задание параметров генераторов
         if cell_param["cellclass"] == "ArtifitialPlaceCell":
             neuron["cellparams"]["place_center_t"] = next(ca3_coord_x_iter)
 
@@ -1777,11 +1798,13 @@ def get_object_params(Nthreads=1):
 
         th_idx = int(neurons_by_threads[cell_idx])
         OBJECTS_PARAMS[th_idx]["neurons"].append(neuron)
-
+    #Вариабельность соединений для некоторых типов нейронов. Ниже применяется для вычисления поправки силы связи
+    #на расстояние
     var_conns_on_pyr = basic_params["var_conns_on_pyr"]
     var_conns_on_pvbas =  var_conns_on_pyr * 3
     var_conns_pvbas2pvbas = var_conns_on_pyr * 50
 
+    #Задание параметров конкретных синапсов между конкретными нейронами
     for presynaptic_cell_idx, pre_celltype in enumerate(cell_types_in_model):
         for postsynaptic_cell_idx, post_celltype in enumerate(cell_types_in_model):
             dist_normalizer = 0
@@ -1799,13 +1822,16 @@ def get_object_params(Nthreads=1):
                 continue
             
             
-            
+            #Для масштабирования при отладке ("вероятность" может стать больше 1, если мы хотим уменьшить 
+            #количество нейронов, но сохранить плотность связей на них. Можно заменить масштабированием весов):
             number_connections = int( np.floor(conn_data["prob"]) )
+            #print("number_connections", number_connections)
             if (np.random.rand() < (conn_data["prob"] - number_connections) ):
                 number_connections += 1
 
             gmax = deepcopy(conn_data["gmax"])
-
+            #Преобразование "условной" дальности в индексах в реальную дальность в координатах между пирамидами
+            #и искусственными генераторами 
             if conn_name == "ca3_spatial2pyr":
                 pyr_idx = postsynaptic_cell_idx - gids_of_celltypes["pyr"][0]
                 pyr_coord = pyr_coord_x[pyr_idx]
@@ -1841,7 +1867,7 @@ def get_object_params(Nthreads=1):
                         
                     gmax = gmax_tmp
 
-                else:
+                else: #Видимо, это для обычных генераторов - не СА3 и кл решетки.
                     gmax = 0.016
                     if np.random.rand() > 0.3:
                         number_connections = 0
@@ -1887,14 +1913,14 @@ def get_object_params(Nthreads=1):
             if gmax < 1e-5:
                 number_connections = 0
 
-
+            #Задание задержек и прочих параметров:
             for _ in range(number_connections):
 
                 delay = np.random.lognormal(mean=np.log(conn_data["delay"]), sigma=conn_data["delay_std"]) 
                 if delay <= 0.5:
                     delay = 0.5
                 
-                gmax_syn =  np.random.normal(loc=gmax, scale=conn_data["gmax_std"])
+                gmax_syn = np.random.normal(loc=gmax, scale=conn_data["gmax_std"])
                 #np.random.lognormal(mean=np.log(gmax), sigma=conn_data["gmax_std"])
 
 
@@ -1915,7 +1941,7 @@ def get_object_params(Nthreads=1):
                     "target_compartment" : conn_data["target_compartment"],
 
                 }
-                
+                #НМДА пока отключены
                 try: 
                     gmax_nmda = conn_data["NMDA"]["gNMDAmax"]
                     gmax_nmda =  np.random.lognormal(mean=np.log(gmax_nmda), sigma=conn_data["NMDA"]["gmax_std"])
@@ -1944,8 +1970,8 @@ def get_object_params(Nthreads=1):
 
 
     gap_juncs = []
-    sgid_gap = 0
-
+    sgid_gap = 0 #Для щелевых контактов нужны свои гиды.
+    #Создание щелевых контактов между нейронами:
     for cell1_idx, celltype1 in enumerate(cell_types_in_model):
         for cell2_idx, celltype2 in enumerate(cell_types_in_model):
 
@@ -1954,7 +1980,9 @@ def get_object_params(Nthreads=1):
             try:
                 conn_name = celltype1 + "2" + celltype2
                 conn_data = basic_params["gap_junctions_params"][conn_name]
-                    
+            #Поскольку лишь по некоторым ключам есть параметры щелевых контактов, при переборе 
+            #всего массива контактов будут вылетать исключения, которые можно игнорировать и 
+            #продолжать перебор.
             except AttributeError:
                 continue
             except KeyError:
