@@ -12,8 +12,6 @@ processing_param = {
 
 }
 
-
-
 def processing_and_save(filepath):
     with h5py.File(filepath, 'a') as h5file:
         tsim = h5file["time"]
@@ -67,6 +65,9 @@ def processing_and_save(filepath):
             fft_amplitudes = fft_amplitudes[1:]
             fft_freqs = np.fft.rfftfreq(spike_rate_pop.size, d=0.001*delta_t)
             fft_freqs = fft_freqs[1:]
+
+            fft_amplitudes = fft_amplitudes[fft_freqs < 500]
+            fft_freqs = fft_freqs[fft_freqs < 500]
 
             firing_process_group_celltype.create_dataset("fft_amplitudes", data = fft_amplitudes)
             firing_process_group_celltype.create_dataset("fft_freqs", data = fft_freqs)
