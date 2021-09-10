@@ -32,3 +32,9 @@ for freq_param in ArtParamList:
     print(freq_param)
 print(ArtParamList)
 '''
+import math
+import numpy as np
+
+
+print((16*50 + 16*16/2)/4)
+print(69*4)

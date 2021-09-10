@@ -26,34 +26,33 @@ def get_basic_params(freq_param):
         #"file_params" : "./Results/params.pickle",
         "file_results":  "./Results/theta_state" + str(freq_param) + ".hdf5", 
         "file_params" : "./Results/params_" + str(freq_param) + ".pickle",
-        "duration" : 200, # 10 sec simulation time
+        "duration" : 1000, # 10 sec simulation time
 
         "del_start_time" : 0, # time after start for remove
         
         #Этот словарь никуда не идет?
         "CellNumbersInFullModel" : {
-            "Nngf" :   200, # 130,
-            "Nnon_spatial" : 200,
+            "Nngf" :   64, # 130,
+            "Nnon_spatial" : 50,
         },
 
         # number of cells
         "CellNumbers" : {
-            "Nngf" : 16, # 130,
+            "Nngf" : 64, # 130,
 
-            "Nnon_spatial" : 16, # Nca3_spatial,
+            "Nnon_spatial" : 50,
         },
         "CellParameters" : {
             "non_spatial" : {
                 "cellclass" : "ArtifitialCell",
                 "R" : 0.3,     # gamma R
-                "mu" : 1.3,    # theta phase
-                "freqs" : 7.0, # theta frequency
+                "mu" : np.pi, #1.3,    # theta phase (В радианах?)
+                "freqs" : freq_param, # theta frequency
                 "spike_rate" : 1.0,
-                "latency" : 10.0,
-                "delta_t" : 0.1,
-                
-                "FreqParam" : freq_param
+                "latency" : 0, #10.0,
+                "delta_t" : 0.1, #?
             },
+            
             "ngf" : {
                 "cellclass" : "ngfcell",
                 "iext" : 0.00,
@@ -77,14 +76,14 @@ def get_basic_params(freq_param):
                 "tau_rise": 0.5,
                 "tau_decay": 3,
 
-                "prob": 0.4, # 0.3, 
+                "prob": 1, # 0.3, 
                 
                 "delay": 1.5,
                 "delay_std" : 0.5,
                 
 
                 "sourse_compartment" : "acell",
-                "target_compartment" : "rad_list",
+                "target_compartment" : "dendrite_list",
 
                 #"NMDA" : {
                 #    "gNMDAmax" : 0.02, # mS
@@ -119,7 +118,7 @@ def get_basic_params(freq_param):
             "ngf2ngf" : {
                 "r" : 1e6,
                 "r_std" : 10,
-                "prob": 0.7,
+                "prob": 1,
                 "compartment1" : "dendrite_list",
                 "compartment2" : "dendrite_list",
             },
@@ -211,35 +210,41 @@ def get_object_params(Nthreads=1, freq_param=0):
         #print("OBJECTS_PARAMS[th_idx][gids_of_celltypes] ", OBJECTS_PARAMS[th_idx]["gids_of_celltypes"])
     OBJECTS_PARAMS[0]["cell_types_in_model"] = cell_types_in_model
 
-    #Задание конкретных параметров для разных типов генераторов
+    #Задание конкретных параметров для разных типов генераторов    
     for celltypename, cellparam in basic_params["CellParameters"].items():
         #print("celltypename:", celltypename, "cellparam:", cellparam)
-        if cellparam["cellclass"] == "ArtifitialCell":
+        if cellparam["cellclass"] == "ArtifitialCell": #Здесь задаются параметры привязки для всего класса генераторов.
             Rgen = cellparam["R"]
             kappa, I0 = prelib.r2kappa(Rgen)
-            cellparam["kappa"] = kappa
-            cellparam["I0"] = I0
-        
+            cellparam["kappa"] = kappa #этих ключей нет в исходном словаре параметров
+            cellparam["I0"] = I0     
         else:
             continue
-
+    ArtCell_idx = 1 
     for cell_idx, celltype in enumerate(cell_types_in_model):
         #print("cell_idx:", cell_idx, "celltype:", celltype)
-        cell_param = basic_params["CellParameters"][celltype]
-        #Задание базовых свойств каждого нейрона
-        neuron = {
+        cell_param = basic_params["CellParameters"][celltype] #"Размножение" словарей параметров (полные клоны базового словаря)
+        #Задание базовых свойств каждого нейрона (включая генераторы)
+        neuron = {#Создается отдельный словарь для каждого нейрона.
             "celltype" : celltype, 
             "cellclass" : cell_param["cellclass"],
             "cellparams" : {},
             "gid" : cell_idx, #Гид задается дважды?
         }
         neuron["cellparams"] = deepcopy(cell_param)
-
-        #Задание параметров генераторов
-            
+        #Модификация параметров для каждого гененратора            
         if cell_param["cellclass"] == "ArtifitialCell":
-            
-            pass
+            #Вариация силы фазовой привязки:
+            Rgen = ArtCell_idx/10*0.2
+            if Rgen >= 1: Rgen = 0.99
+            kappa, I0 = prelib.r2kappa(Rgen)
+            neuron["cellparams"]["kappa"] = kappa 
+            neuron["cellparams"]["I0"] = I0  
+            #Вариация частоты разряда:
+            neuron["cellparams"]["spike_rate"] = 5 + 2 * (ArtCell_idx/10)
+            #Генератор случайных чисел: нет параметра!
+            ArtCell_idx += 1
+            #print("kappa for ArtCell ", cell_idx, ":", neuron["cellparams"]["kappa"]) 
         else:
             if cell_param["iext"] > 0:
                 neuron["cellparams"]["iext"] = np.random.lognormal( np.log(cell_param["iext"]), cell_param["iext_std"]   )
@@ -338,7 +343,8 @@ def get_object_params(Nthreads=1, freq_param=0):
                 th_idx = int(neurons_by_threads[postsynaptic_cell_idx])
                 OBJECTS_PARAMS[th_idx]["synapses_params"].append(connection)
 
-
+    #counter = 0
+    #count_of_doubles = 0
     gap_juncs = []
     sgid_gap = 0 #Для щелевых контактов нужны свои гиды.
     #Создание щелевых контактов между нейронами:
@@ -357,7 +363,8 @@ def get_object_params(Nthreads=1, freq_param=0):
                 continue
             except KeyError:
                 continue
-
+            #print(celltype1, cell1_idx, "2", celltype2, cell2_idx)
+            #counter +=1
             if (np.random.rand() > conn_data["prob"]): continue
            
             gap = {
@@ -380,7 +387,10 @@ def get_object_params(Nthreads=1, freq_param=0):
             th_idx2 = int(neurons_by_threads[cell2_idx])
             if th_idx2 != th_idx:
                 OBJECTS_PARAMS[th_idx2]["gap_junctions"].append(gap)
-
+                #count_of_doubles += 1
+    #print("gap_junctions from vector", len(OBJECTS_PARAMS[th_idx]["gap_junctions"]))
+    #print("gap_junctions from counter", counter)
+    #print("gaps count_of_doubles", count_of_doubles)
     
     for th_idx in range(Nthreads):
         OBJECTS_PARAMS[th_idx]["duration"] = deepcopy(basic_params["duration"])
@@ -399,7 +409,14 @@ if __name__ == "__main__":
     # This test code. You can run and see format of list and dictionaries genereated by functions in this file
     Nthreads = 4
     objc_p_list = []
-    ArtParamList = np.arange(5, 10, 5)
+    ArtParamList = np.arange(5, 105, 5)
     for freq_param in ArtParamList:
         print(freq_param)
         objc_p_list.append(get_object_params(Nthreads=Nthreads, freq_param=freq_param))
+    '''
+    obj = get_object_params(Nthreads=4, freq_param=5)  
+    gaps = 0
+    for i in range(Nthreads):
+        gaps += len(obj[i]["gap_junctions"])
+    print("gaps in all threads: ", gaps)
+    '''

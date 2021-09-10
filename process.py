@@ -32,7 +32,7 @@ def processing_and_save(filepath):
 
         parzen_win = get_window("parzen", 51)
         for celltype in firing_origin.keys():
-            if celltype != "msach": continue # ngf !!!!!!
+            if celltype != "ngf": continue # ngf !!!!!!
 
             firing_process_group_celltype = firing_process_group.create_group(celltype)
             spike_rate_pop = np.zeros( tsim.size, dtype=np.float)
