@@ -24,8 +24,8 @@ def plot_peak_freqs(path, axes, Nmaxes = 3):
         with h5py.File(filepath, 'r') as h5file:
             stim_freq.append(counter) # read from h5file !!!!
 
-            fft_amplitudes = h5file["extracellular/electrode_1/firing/processing/msach/fft_amplitudes"][:]
-            fft_freqs = h5file["extracellular/electrode_1/firing/processing/msach/fft_freqs"][:]
+            fft_amplitudes = h5file["extracellular/electrode_1/firing/processing/ngf/fft_amplitudes"][:]
+            fft_freqs = h5file["extracellular/electrode_1/firing/processing/ngf/fft_freqs"][:]
             peak_freq_args = argrelmax(fft_amplitudes, mode="wrap")[0]
 
             fft_freqs_peak = fft_freqs[peak_freq_args]
@@ -56,7 +56,7 @@ def plot_mean_CV(path, axes, parameter="mean_cv"):
         with h5py.File(filepath, 'r') as h5file:
             stim_freq.append(counter)  # read from h5file !!!!
             # .format(parameter)
-            val = h5file["extracellular/electrode_1/firing/processing/msach/{}".format(parameter)][()]
+            val = h5file["extracellular/electrode_1/firing/processing/ngf/{}".format(parameter)][()]
             vals.append(val)
             counter += 1
 
