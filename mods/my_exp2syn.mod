@@ -75,10 +75,10 @@ BREAKPOINT {
 }
 
 DERIVATIVE state {
-	A' = -A/tau1
-	B' = -B/tau2
+	A' = -A/tau1 //+Nu 
+	B' = -B/tau2 // +Nu
 }
-
+//Убрать
 NET_RECEIVE(weight (uS)) {
 	state_discontinuity(A, A + weight*factor)
 	state_discontinuity(B, B + weight*factor)

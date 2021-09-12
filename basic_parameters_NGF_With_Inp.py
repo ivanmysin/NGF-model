@@ -20,25 +20,21 @@ msach - medial septal cholinergic neurons
 msteevracells  - medial septal GABAergic neurons (Teevra cells)
 """
 
-def get_basic_params(freq_param):
+def get_basic_params(freq_param, ampl_param):
     basic_params = {
         #"file_results":  "./Results/theta_state.hdf5", # non_theta_state_ripples.hdf5",   #file for saving results
         #"file_params" : "./Results/params.pickle",
-        "file_results":  "./Results/theta_state" + str(freq_param) + ".hdf5", 
-        "file_params" : "./Results/params_" + str(freq_param) + ".pickle",
-        "duration" : 1000, # 10 sec simulation time
+        "file_results":  "./Results/" + str(freq_param) + "Hz_" + str(ampl_param/0.016) + "_Mult" + ".hdf5", 
+        "file_params" : "./Results/params_" + str(freq_param) + "Hz_" + str(ampl_param/0.016) + "_Mult" + ".pickle",
+        #"file_results":  "./Results/theta_state" + str(freq_param) + ".hdf5", # non_theta_state_ripples.hdf5",   #file for saving results
+        #"file_params" : "./Results/params" + str(freq_param) + ".pickle",
+        "duration" : 5200, # 10 sec simulation time
 
-        "del_start_time" : 0, # time after start for remove
-        
-        #Этот словарь никуда не идет?
-        "CellNumbersInFullModel" : {
-            "Nngf" :   64, # 130,
-            "Nnon_spatial" : 50,
-        },
+        "del_start_time" : 200, # time after start for remove
 
         # number of cells
         "CellNumbers" : {
-            "Nngf" : 64, # 130,
+            "Nngf" : 200, # 130,
 
             "Nnon_spatial" : 50,
         },
@@ -62,15 +58,15 @@ def get_basic_params(freq_param):
         # indexes of neurons for saving soma potentials
         # Сколько нейронов данного типа записывать
         "save_soma_v" : {
-            "ngf" : np.arange(16), #[0, ], # [0, ],
+            "ngf" : np.arange(200), #НЕ ЗАБЫТЬ!!!
         },
 
         # parameters of connections
         "connections" : {
             # connection to pyramidal neurons            
             "non_spatial2ngf": {
-                "gmax": 0.016, #
-                "gmax_std" : 0.002, # 0.5, #
+                "gmax": ampl_param, #0.016 * 300, #
+                "gmax_std" : 0, #0.002, # 0.5, #
                 
                 "Erev": 0,
                 "tau_rise": 0.5,
@@ -126,13 +122,13 @@ def get_basic_params(freq_param):
     }    
     return basic_params
 
-def get_object_params(Nthreads=1, freq_param=0):
+def get_object_params(Nthreads=1, freq_param=0, ampl_param = 1):
     """
     Function return list.
     Each element of the list is dictionary of parameters for one thread of CPU
     """
 
-    basic_params = get_basic_params(freq_param)
+    basic_params = get_basic_params(freq_param, ampl_param)
     
     OBJECTS_PARAMS = []
     for _ in range(Nthreads):
@@ -147,7 +143,7 @@ def get_object_params(Nthreads=1, freq_param=0):
 
         OBJECTS_PARAMS.append(thread_param)
 
-    cell_types_in_model = [] #позже входит в состав OBJECTS_PARAMS (но только нулевого потока?)
+    cell_types_in_model = [] #Содержит и нейроны, и генераторы. Позже входит в состав OBJECTS_PARAMS.
     gids_of_celltypes = {} #Общий список гидов, соответствующий общему списку нейронов до распределения по потокам
 
     for celltype, numbers in sorted(basic_params["CellNumbers"].items()):
@@ -254,11 +250,12 @@ def get_object_params(Nthreads=1, freq_param=0):
 
         th_idx = int(neurons_by_threads[cell_idx])
         OBJECTS_PARAMS[th_idx]["neurons"].append(neuron)
-
+        
     #Задание параметров конкретных синапсов между конкретными нейронами
     for presynaptic_cell_idx, pre_celltype in enumerate(cell_types_in_model):
         for postsynaptic_cell_idx, post_celltype in enumerate(cell_types_in_model):
             dist_normalizer = 0
+            conn_name = pre_celltype + "2" + post_celltype
 
 
             if presynaptic_cell_idx == postsynaptic_cell_idx: continue
@@ -272,24 +269,20 @@ def get_object_params(Nthreads=1, freq_param=0):
             except KeyError:
                 continue
             
-            
             #Для масштабирования при отладке ("вероятность" может стать больше 1, если мы хотим уменьшить 
             #количество нейронов, но сохранить плотность связей на них. Можно заменить масштабированием весов):
             number_connections = int( np.floor(conn_data["prob"]) )
             #print("number_connections", number_connections)
             if (np.random.rand() < (conn_data["prob"] - number_connections) ):
-                number_connections += 1
+                number_connections += 1 #либо 0 либо 1, если вероятность от 0 до 1 и больше единицы, ели вероятность больше 1.
+                #Для случая болльше 1 ниже идет пробежка по циклу.
 
             gmax = deepcopy(conn_data["gmax"])
             #Преобразование "условной" дальности в индексах в реальную дальность в координатах между пирамидами
             #и искусственными генераторами 
-########### ВОЗМОЖНО, ВЫБРОСИТЬ!
-            if conn_name == "non_spatial2ngf": 
-                gmax = 0.016
 
-###############
             #Задание задержек и прочих параметров:
-            for _ in range(number_connections):
+            for _ in range(number_connections): #
 
                 delay = np.random.lognormal(mean=np.log(conn_data["delay"]), sigma=conn_data["delay_std"]) 
                 if delay <= 0.5:
@@ -298,11 +291,10 @@ def get_object_params(Nthreads=1, freq_param=0):
                 gmax_syn =  np.random.normal(loc=gmax, scale=conn_data["gmax_std"])
                 #np.random.lognormal(mean=np.log(gmax), sigma=conn_data["gmax_std"])
 
-
-                if gmax_syn < 0.000001:
+                if gmax_syn < 0: #0.000001:
                     continue
-
-                connection = {
+                    
+                connection = { #Здесь только соединения нейрон с нейроном, не генератор на нейрон?
                     "pre_gid" : presynaptic_cell_idx,
                     "post_gid" : postsynaptic_cell_idx,
                     
@@ -312,10 +304,11 @@ def get_object_params(Nthreads=1, freq_param=0):
                     "tau_decay" : conn_data["tau_decay"],
                     "delay" : delay,
                     
-                    "sourse_compartment" : conn_data["sourse_compartment"],
+                    "sourse_compartment" : conn_data["sourse_compartment"], #В случает генератора 'acell'
                     "target_compartment" : conn_data["target_compartment"],
-
                 }
+                #if pre_celltype == 'non_spatial':
+                    #print(pre_celltype + "2" + post_celltype, presynaptic_cell_idx, "to", postsynaptic_cell_idx, "gmax", connection["gmax"])
                 #НМДА пока отключены
                 try: 
                     gmax_nmda = conn_data["NMDA"]["gNMDAmax"]
@@ -409,14 +402,12 @@ if __name__ == "__main__":
     # This test code. You can run and see format of list and dictionaries genereated by functions in this file
     Nthreads = 4
     objc_p_list = []
-    ArtParamList = np.arange(5, 105, 5)
-    for freq_param in ArtParamList:
-        print(freq_param)
-        objc_p_list.append(get_object_params(Nthreads=Nthreads, freq_param=freq_param))
-    '''
-    obj = get_object_params(Nthreads=4, freq_param=5)  
-    gaps = 0
-    for i in range(Nthreads):
-        gaps += len(obj[i]["gap_junctions"])
-    print("gaps in all threads: ", gaps)
-    '''
+    ArtFreqList = np.arange(5, 105, 5)
+    #ArtFreqList = [100,]
+    ArtAmplList = 0.016 * np.arange(100, 1000, 100)
+    print(ArtAmplList)
+    for ampl_param in ArtAmplList:
+        for freq_param in ArtFreqList:
+            print("ampl_param", ampl_param, "freq_param", freq_param)
+            objc_p_list.append(get_object_params(Nthreads=Nthreads, freq_param=freq_param, ampl_param=ampl_param))
+   

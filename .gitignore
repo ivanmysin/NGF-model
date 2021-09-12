@@ -4,5 +4,5 @@
 /mods/x86_64/*
 /__pycache__/*
 *.pyc
-/Results/
-
+/Results/*
+/Archive/*

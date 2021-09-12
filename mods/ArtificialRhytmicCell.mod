@@ -58,7 +58,7 @@ INITIAL {
     
 }
 
-NET_RECEIVE (w) {
+NET_RECEIVE (w) { //запуск при инициализации
    
     get_pdf_by_phase()
          
@@ -75,7 +75,7 @@ NET_RECEIVE (w) {
         net_send(delta_t, 1)
         net_event(t)
        
-    } else {
+    } else { //Самовозбуждение
         time_after_spike = time_after_spike + delta_t
         net_send(delta_t, 1)
     }
